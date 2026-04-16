@@ -288,11 +288,25 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   // --- Import Collection ---
-  // Opens a dedicated page (survives file picker dialog; popup would close otherwise)
+  // Opens import page in a small popup window (not a tab).
+  // The popup closes when the file picker steals focus, so we listen
+  // for storage changes to refresh the collection list when it reopens.
 
   function importCollection() {
-    browser.tabs.create({ url: browser.runtime.getURL("import-page.html") });
+    browser.windows.create({
+      url: browser.runtime.getURL("import-page.html"),
+      type: "popup",
+      width: 500,
+      height: 450,
+    });
   }
+
+  // Refresh collections when storage changes (e.g. after import from the popup window)
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.collections) {
+      renderCollections();
+    }
+  });
 
   // --- Event Delegation for Collection Actions ---
 
