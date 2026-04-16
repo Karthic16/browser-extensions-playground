@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Tabs Saver",
+  "version": "1.0",
+  "description": "Save and restore collections of browser tabs with one click.",
+  "permissions": [
+    "storage",
+    "tabs",
+    "downloads"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Tabs Saver",
+    "default_icon": {
+      "16": "icons/icon-16.svg",
+      "48": "icons/icon-48.svg",
+      "128": "icons/icon-128.svg"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.svg",
+    "48": "icons/icon-48.svg",
+    "128": "icons/icon-128.svg"
+  }
+}
