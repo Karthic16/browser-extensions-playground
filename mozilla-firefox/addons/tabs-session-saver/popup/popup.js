@@ -267,7 +267,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       };
 
       const jsonStr = JSON.stringify(exportData, null, 2);
-      const filename = "tabs-saver/" + sanitizeFilename(col.name) + ".json";
+      const filename = "tabs-session-saver/" + sanitizeFilename(col.name) + ".json";
 
       // Delegate to background script so the blob URL survives after popup closes
       const result = await browser.runtime.sendMessage({
