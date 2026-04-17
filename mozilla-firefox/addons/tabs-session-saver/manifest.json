@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Tabs Saver",
+  "name": "Tabs Session Saver",
   "version": "1.0",
   "description": "Save and restore collections of browser tabs with one click.",
   "permissions": [
@@ -13,7 +13,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "Tabs Saver",
+    "default_title": "Tabs Session Saver",
     "default_icon": {
       "16": "icons/icon-16.svg",
       "48": "icons/icon-48.svg",
