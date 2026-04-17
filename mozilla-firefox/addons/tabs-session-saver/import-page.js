@@ -28,19 +28,27 @@ fileInput.addEventListener("change", async (e) => {
     const text = await readFileAsText(file);
     const data = JSON.parse(text);
 
-    if (typeof data.name !== "string" || !Array.isArray(data.tabs)) {
-      showStatus("Invalid file: missing name or tabs array.", "error");
-      return;
+    function validateTab(t) {
+      return t && typeof t.url === "string" && t.url.length > 0;
     }
 
-    const validTabs = data.tabs
-      .filter((t) => t && typeof t.url === "string" && t.url.length > 0)
-      .map((t) => ({
+    function cleanTab(t) {
+      return {
         url: t.url,
         title: typeof t.title === "string" ? t.title : t.url,
-      }));
+      };
+    }
 
-    if (validTabs.length === 0) {
+    // Restore window structure if present, otherwise treat as single window
+    const windowStructure = Array.isArray(data.windows) && data.windows.length > 0
+      ? data.windows.map((w) => ({
+          tabs: Array.isArray(w.tabs) ? w.tabs.filter(validateTab).map(cleanTab) : [],
+        })).filter((w) => w.tabs.length > 0)
+      : [{ tabs: data.tabs.filter(validateTab).map(cleanTab) }];
+
+    const allTabs = windowStructure.flatMap((w) => w.tabs);
+
+    if (allTabs.length === 0) {
       showStatus("No valid tabs found in file.", "error");
       return;
     }
@@ -56,13 +64,18 @@ fileInput.addEventListener("change", async (e) => {
     collections[id] = {
       name: data.name + " (imported)",
       createdAt: createdAt,
-      tabs: validTabs,
+      tabs: allTabs,
+      windows: windowStructure,
+      scope: data.scope || (windowStructure.length > 1 ? "all" : "current"),
+      ...(windowStructure.length > 1 && { windowCount: windowStructure.length }),
     };
 
     await browser.storage.local.set({ collections });
 
+    const tabWord = allTabs.length !== 1 ? "tabs" : "tab";
+    const winNote = windowStructure.length > 1 ? " across " + windowStructure.length + " windows" : "";
     showStatus(
-      "Imported " + validTabs.length + " tab" + (validTabs.length !== 1 ? "s" : "") + ". Closing\u2026",
+      "Imported " + allTabs.length + " " + tabWord + winNote + ". Closing\u2026",
       "success"
     );
 

@@ -26,6 +26,42 @@
   <!-- Save Section -->
   <div class="save-section">
     <button id="save-btn" class="btn btn-primary">Save All Tabs</button>
+
+    <!-- Scope Picker -->
+    <div id="scope-picker" class="scope-picker hidden">
+      <p class="scope-label">Save tabs from:</p>
+      <div class="scope-options">
+        <button id="scope-current" class="btn btn-scope" title="Save tabs in the current window only">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+            <rect x="2" y="4" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="5" y="7" width="10" height="1.5" rx="0.75" fill="currentColor"/>
+            <rect x="5" y="10" width="7" height="1.5" rx="0.75" fill="currentColor"/>
+          </svg>
+          Current Window
+        </button>
+        <button id="scope-all" class="btn btn-scope" title="Save tabs across all open Firefox windows">
+          <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+            <rect x="1" y="6" width="13" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="6" y="4" width="13" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <rect x="8" y="8" width="8" height="1.4" rx="0.7" fill="currentColor"/>
+            <rect x="8" y="10.8" width="5" height="1.4" rx="0.7" fill="currentColor"/>
+          </svg>
+          All Windows
+        </button>
+      </div>
+    </div>
+
+    <!-- Window Selector (for "All Windows" mode) -->
+    <div id="window-selector" class="window-selector hidden">
+      <p class="selector-label">Select windows to save:</p>
+      <div id="windows-list" class="windows-list"></div>
+      <div class="selector-actions">
+        <button id="windows-confirm" class="btn btn-primary btn-sm">Continue</button>
+        <button id="windows-cancel" class="btn btn-secondary btn-sm">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Name Form -->
     <div id="save-form" class="save-form hidden">
       <input type="text" id="collection-name" class="input" placeholder="Collection name">
       <div class="save-form-actions">

@@ -1,6 +1,13 @@
 document.addEventListener("DOMContentLoaded", async () => {
   // --- DOM Elements ---
   const saveBtn = document.getElementById("save-btn");
+  const scopePicker = document.getElementById("scope-picker");
+  const scopeCurrentBtn = document.getElementById("scope-current");
+  const scopeAllBtn = document.getElementById("scope-all");
+  const windowSelector = document.getElementById("window-selector");
+  const windowsList = document.getElementById("windows-list");
+  const windowsConfirmBtn = document.getElementById("windows-confirm");
+  const windowsCancelBtn = document.getElementById("windows-cancel");
   const saveForm = document.getElementById("save-form");
   const collectionNameInput = document.getElementById("collection-name");
   const saveConfirmBtn = document.getElementById("save-confirm");
@@ -12,6 +19,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const settingsPanel = document.getElementById("settings-panel");
   const newWindowToggle = document.getElementById("new-window-toggle");
   const statusMsg = document.getElementById("status-msg");
+
+  // Tracks scope and window selections
+  let saveScope = "current";
+  let allWindows = [];
+  let selectedWindowIds = new Set();
+  // Captured at "Continue" click — window tab data ready for saveAllTabs()
+  let pendingWindowsData = null;
 
   // --- Data Helpers ---
 
@@ -108,7 +122,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const meta = document.createElement("div");
         meta.className = "collection-meta";
-        meta.textContent = col.tabs.length + " tab" + (col.tabs.length !== 1 ? "s" : "") + " \u00B7 " + formatDate(col.createdAt);
+        const tabWord = col.tabs.length !== 1 ? "tabs" : "tab";
+        const windowBadge = col.scope === "all" && col.windowCount > 1
+          ? " \u00B7 " + col.windowCount + " windows"
+          : "";
+        meta.textContent = col.tabs.length + " " + tabWord + windowBadge + " \u00B7 " + formatDate(col.createdAt);
 
         info.appendChild(name);
         info.appendChild(meta);
@@ -146,37 +164,156 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Save All Tabs ---
 
-  function showSaveForm() {
+  function showScopePicker() {
+    saveBtn.classList.add("hidden");
+    scopePicker.classList.remove("hidden");
+  }
+
+  async function showWindowSelector() {
+    saveScope = "all";
+    scopePicker.classList.add("hidden");
+    allWindows = await browser.windows.getAll({ populate: true, windowTypes: ["normal"] });
+    selectedWindowIds = new Set(allWindows.map((w) => w.id));
+
+    renderWindowSelector();
+    windowSelector.classList.remove("hidden");
+  }
+
+  function renderWindowSelector() {
+    windowsList.innerHTML = "";
+
+    allWindows.forEach((win) => {
+      const validTabs = win.tabs.filter(isValidTab);
+      const card = document.createElement("div");
+      card.className = "window-card";
+
+      const header = document.createElement("div");
+      header.className = "window-card-header";
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selectedWindowIds.has(win.id);
+      checkbox.dataset.windowId = win.id;
+      checkbox.addEventListener("change", (e) => {
+        if (e.target.checked) {
+          selectedWindowIds.add(win.id);
+        } else {
+          selectedWindowIds.delete(win.id);
+        }
+      });
+
+      const title = document.createElement("div");
+      title.className = "window-card-title";
+      title.textContent = "Window " + (allWindows.indexOf(win) + 1);
+
+      const tabCount = document.createElement("div");
+      tabCount.className = "window-tab-count";
+      tabCount.textContent = validTabs.length + " tab" + (validTabs.length !== 1 ? "s" : "");
+
+      header.appendChild(checkbox);
+      header.appendChild(title);
+      header.appendChild(tabCount);
+      card.appendChild(header);
+
+      if (validTabs.length > 0) {
+        const preview = document.createElement("div");
+        preview.className = "window-tabs-preview";
+        validTabs.slice(0, 3).forEach((tab) => {
+          const tabItem = document.createElement("div");
+          tabItem.className = "window-tab-item";
+          tabItem.title = tab.title || tab.url;
+          tabItem.textContent = "• " + (tab.title || tab.url);
+          preview.appendChild(tabItem);
+        });
+        if (validTabs.length > 3) {
+          const more = document.createElement("div");
+          more.className = "window-tab-item";
+          more.textContent = "• +" + (validTabs.length - 3) + " more";
+          preview.appendChild(more);
+        }
+        card.appendChild(preview);
+      }
+
+      windowsList.appendChild(card);
+    });
+  }
+
+  function confirmWindowSelection() {
+    const selectedWins = allWindows.filter((w) => selectedWindowIds.has(w.id));
+    if (selectedWins.length === 0) {
+      showStatus("Select at least one window.", "error");
+      return;
+    }
+
+    // Capture window + tab data right now, before anything can change
+    pendingWindowsData = selectedWins.map((win) => ({
+      tabs: win.tabs.filter(isValidTab).map((t) => ({
+        url: t.url,
+        title: t.title || t.url,
+      })),
+    }));
+
+    showSaveForm("all");
+  }
+
+  function showSaveForm(scope) {
+    saveScope = scope;
+    scopePicker.classList.add("hidden");
+    windowSelector.classList.add("hidden");
+
     const now = new Date();
-    collectionNameInput.value = "Tabs - " + now.toLocaleDateString(undefined, {
+    const dateStr = now.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-    saveBtn.classList.add("hidden");
+    collectionNameInput.value = (scope === "all" ? "All Windows - " : "Tabs - ") + dateStr;
     saveForm.classList.remove("hidden");
     collectionNameInput.focus();
     collectionNameInput.select();
   }
 
-  function hideSaveForm() {
+  function hideSaveFlow() {
+    scopePicker.classList.add("hidden");
+    windowSelector.classList.add("hidden");
     saveForm.classList.add("hidden");
     saveBtn.classList.remove("hidden");
+    saveScope = "current";
+    selectedWindowIds.clear();
+    allWindows = [];
+    pendingWindowsData = null;
   }
 
   async function saveAllTabs() {
     try {
-      const tabs = await browser.tabs.query({ currentWindow: true });
-      const validTabs = tabs.filter(isValidTab).map((t) => ({
-        url: t.url,
-        title: t.title || t.url,
-      }));
+      let windowStructure = null;
+      let totalTabCount = 0;
+      let windowCount = 1;
 
-      if (validTabs.length === 0) {
+      if (saveScope === "all") {
+        if (!pendingWindowsData || pendingWindowsData.length === 0) {
+          showStatus("No windows selected.", "error");
+          return;
+        }
+
+        windowStructure = pendingWindowsData;
+        windowCount = windowStructure.length;
+        totalTabCount = windowStructure.reduce((sum, w) => sum + w.tabs.length, 0);
+      } else {
+        const tabs = await browser.tabs.query({ currentWindow: true });
+        const validTabs = tabs.filter(isValidTab).map((t) => ({
+          url: t.url,
+          title: t.title || t.url,
+        }));
+        totalTabCount = validTabs.length;
+        windowStructure = [{ tabs: validTabs }];
+      }
+
+      if (totalTabCount === 0) {
         showStatus("No saveable tabs found (internal pages are excluded).", "error");
-        hideSaveForm();
+        hideSaveFlow();
         return;
       }
 
@@ -187,19 +324,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       collections[id] = {
         name: name,
         createdAt: new Date().toISOString(),
-        tabs: validTabs,
+        tabs: windowStructure.flatMap((w) => w.tabs),
+        windows: windowStructure,
+        scope: saveScope,
+        ...(saveScope === "all" && { windowCount }),
       };
 
       await saveCollections(collections);
-      hideSaveForm();
+      hideSaveFlow();
       await renderCollections();
-      showStatus("Saved " + validTabs.length + " tab" + (validTabs.length !== 1 ? "s" : "") + ".", "success");
+
+      const tabWord = totalTabCount !== 1 ? "tabs" : "tab";
+      const msg = saveScope === "all"
+        ? "Saved " + totalTabCount + " " + tabWord + " across " + windowCount + " window" + (windowCount !== 1 ? "s" : "") + "."
+        : "Saved " + totalTabCount + " " + tabWord + ".";
+      showStatus(msg, "success");
     } catch (err) {
       showStatus("Failed to save tabs: " + err.message, "error");
     }
   }
 
   // --- Restore Collection ---
+  // Delegated to the background script so popup closure (caused by a new
+  // window taking focus) doesn't interrupt the restore loop mid-way.
 
   async function restoreCollection(id) {
     try {
@@ -210,15 +357,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      const urls = col.tabs.map((t) => t.url);
       const settings = await getSettings();
+      const windows = col.windows || [{ tabs: col.tabs }];
+      const totalTabs = windows.reduce((sum, w) => sum + w.tabs.length, 0);
 
-      if (settings.restoreInNewWindow) {
-        await browser.windows.create({ url: urls });
+      const result = await browser.runtime.sendMessage({
+        action: "restoreWindows",
+        windows,
+        restoreInNewWindow: settings.restoreInNewWindow,
+      });
+
+      if (result && result.success) {
+        const tabWord = totalTabs !== 1 ? "tabs" : "tab";
+        const winMsg = windows.length > 1 ? " across " + windows.length + " windows" : "";
+        showStatus("Restored " + totalTabs + " " + tabWord + winMsg + ".", "success");
       } else {
-        for (const url of urls) {
-          await browser.tabs.create({ url: url });
-        }
+        showStatus("Failed to open tabs: " + (result ? result.error : "Unknown error"), "error");
       }
     } catch (err) {
       showStatus("Failed to open tabs: " + err.message, "error");
@@ -263,7 +417,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         name: col.name,
         createdAt: col.createdAt,
         exportedAt: new Date().toISOString(),
-        tabs: col.tabs,
+        scope: col.scope || "current",
+        windows: col.windows || [{ tabs: col.tabs }],
       };
 
       const jsonStr = JSON.stringify(exportData, null, 2);
@@ -323,13 +478,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // --- Event Listeners ---
 
-  saveBtn.addEventListener("click", showSaveForm);
-  saveCancelBtn.addEventListener("click", hideSaveForm);
+  saveBtn.addEventListener("click", showScopePicker);
+  scopeCurrentBtn.addEventListener("click", () => showSaveForm("current"));
+  scopeAllBtn.addEventListener("click", showWindowSelector);
+  windowsConfirmBtn.addEventListener("click", confirmWindowSelection);
+  windowsCancelBtn.addEventListener("click", hideSaveFlow);
+  saveCancelBtn.addEventListener("click", hideSaveFlow);
   saveConfirmBtn.addEventListener("click", saveAllTabs);
 
   collectionNameInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") saveAllTabs();
-    if (e.key === "Escape") hideSaveForm();
+    if (e.key === "Escape") hideSaveFlow();
   });
 
   importBtn.addEventListener("click", importCollection);
